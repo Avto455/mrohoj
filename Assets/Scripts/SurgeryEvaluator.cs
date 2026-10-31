@@ -13,8 +13,8 @@ public class SurgeryEvaluator : MonoBehaviour
             return; 
         } 
 
-        float area = CalculateArea(points); 
-        Debug.Log("Surgery Evaluation: Area = " + area); 
+        float area = CalculateNormalisedArea(points); 
+        Debug.Log("Surgery Evaluation: Normalised Area = " + area); 
 
         if (currentPatient == null) 
         { 
@@ -44,7 +44,7 @@ public class SurgeryEvaluator : MonoBehaviour
         return isInside; 
     } 
 
-    private float CalculateArea(List<Vector2> points) 
+    private float CalculateNormalisedArea(List<Vector2> points) 
     { 
         float area = 0; 
         int j = points.Count - 1; 

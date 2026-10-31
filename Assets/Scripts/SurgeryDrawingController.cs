@@ -9,12 +9,11 @@ public class SurgeryDrawingController : MonoBehaviour
     public RectTransform patientRect;
     public GameObject pointPrefab; // A small UI Image prefab
     public Color lineColor = Color.red;
-    public float pointSpacing = 0.1f; // Distance between points to spawn
-    public Vector2 drawingOffset = Vector2.zero; // Offset to align drawing with image
+    public float pointSpacing = 2f; // Pixels distance to spawn new point
 
     [Header("State")]
     private bool isDrawing = false;
-    private List<Vector2> currentContour = new List<Vector2>();
+    private List<Vector2> currentContour = new List<Vector2>(); // Normalised coordinates (0 to 1)
     private List<GameObject> visualPoints = new List<GameObject>();
     private GameObject contourContainer;
 
@@ -68,16 +67,34 @@ public class SurgeryDrawingController : MonoBehaviour
     {
         Vector2 mousePos = Input.mousePosition;
         Canvas canvas = patientRect.GetComponentInParent<Canvas>();
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(patientRect, mousePos, canvas != null ? canvas.worldCamera : null, out Vector2 localPoint);
-
-        // Apply offset for visual and logical alignment
-        Vector2 adjustedPoint = localPoint + drawingOffset;
-
-        if (currentContour.Count == 0 || Vector2.Distance(adjustedPoint, currentContour[currentContour.Count - 1]) > pointSpacing * 10f)
+        
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(patientRect, mousePos, canvas != null ? canvas.worldCamera : null, out Vector2 localPoint))
         {
-            currentContour.Add(adjustedPoint);
-            SpawnPoint(adjustedPoint);
+            // Convert local coordinates to normalised coordinates (0 to 1)
+            // This removes any "magnetism" to center or offsets, as it's relative to the rect size
+            Vector2 size = patientRect.rect.size;
+            Vector2 normalizedPoint = new Vector2(
+                (localPoint.x / size.x) + 0.5f,
+                (localPoint.y / size.y) + 0.5f
+            );
+
+            if (currentContour.Count == 0 || Vector2.Distance(localPoint, GetLastLocalPoint()) > pointSpacing)
+            {
+                currentContour.Add(normalizedPoint);
+                SpawnPoint(localPoint);
+            }
         }
+    }
+
+    private Vector2 GetLastLocalPoint()
+    {
+        if (currentContour.Count == 0) return Vector2.zero;
+        Vector2 lastNorm = currentContour[currentContour.Count - 1];
+        Vector2 size = patientRect.rect.size;
+        return new Vector2(
+            (lastNorm.x - 0.5f) * size.x,
+            (lastNorm.y - 0.5f) * size.y
+        );
     }
 
     private void StopDrawing()
