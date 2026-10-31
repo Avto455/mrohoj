@@ -30,7 +30,7 @@ public class SurgeryDrawingController : MonoBehaviour
 
     void Update()
     {
-        if (modeController == null || modeController.currentMode != ToolMode.Surgery)
+        if (modeController == null || modeController.currentMode != ToolModeController.ToolMode.Surgery)
         {
             if (isDrawing) StopDrawing();
             return;
