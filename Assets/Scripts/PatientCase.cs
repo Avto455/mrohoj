@@ -1,0 +1,1 @@
+using UnityEngine; using System.Collections.Generic; [CreateAssetMenu(fileName = NewPatient, menuName = Prosvet/PatientCase)] public class PatientCase : ScriptableObject { public string patientName; public string description; public List\<ParasiteTarget\> parasites = new List\<ParasiteTarget\>(); }
