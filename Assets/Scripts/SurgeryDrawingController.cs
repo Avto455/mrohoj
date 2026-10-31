@@ -10,6 +10,7 @@ public class SurgeryDrawingController : MonoBehaviour
     public GameObject pointPrefab; // A small UI Image prefab
     public Color lineColor = Color.red;
     public float pointSpacing = 0.1f; // Distance between points to spawn
+    public Vector2 drawingOffset = Vector2.zero; // Offset to align drawing with image
 
     [Header("State")]
     private bool isDrawing = false;
@@ -69,10 +70,13 @@ public class SurgeryDrawingController : MonoBehaviour
         Canvas canvas = patientRect.GetComponentInParent<Canvas>();
         RectTransformUtility.ScreenPointToLocalPointInRectangle(patientRect, mousePos, canvas != null ? canvas.worldCamera : null, out Vector2 localPoint);
 
-        if (currentContour.Count == 0 || Vector2.Distance(localPoint, currentContour[currentContour.Count - 1]) > pointSpacing * 10f)
+        // Apply offset for visual and logical alignment
+        Vector2 adjustedPoint = localPoint + drawingOffset;
+
+        if (currentContour.Count == 0 || Vector2.Distance(adjustedPoint, currentContour[currentContour.Count - 1]) > pointSpacing * 10f)
         {
-            currentContour.Add(localPoint);
-            SpawnPoint(localPoint);
+            currentContour.Add(adjustedPoint);
+            SpawnPoint(adjustedPoint);
         }
     }
 

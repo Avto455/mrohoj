@@ -224,6 +224,55 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &211106408
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 211106410}
+  - component: {fileID: 211106409}
+  m_Layer: 0
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &211106409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 211106408}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df7a832156c0e4446ab318a9f0eaef7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  modeController: {fileID: 2133706824}
+  xrayRect: {fileID: 1862238991}
+  currentPatient: {fileID: 11400000, guid: be90e8d37700653479924801054c91b1, type: 2}
+  parasitePrefab: {fileID: 4042624662205078513, guid: e070f9096d459754aa33d0aafc280465, type: 3}
+  parasiteColor: {r: 0.06798744, g: 1, b: 0, a: 1}
+--- !u!4 &211106410
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 211106408}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &358808675
 GameObject:
   m_ObjectHideFlags: 0
@@ -1976,6 +2025,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e40b8dccc8894d4c96fe5d3ca1c886a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  currentPatient: {fileID: 11400000, guid: be90e8d37700653479924801054c91b1, type: 2}
 --- !u!114 &2133706827
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1992,7 +2042,8 @@ MonoBehaviour:
   patientRect: {fileID: 1147978206}
   pointPrefab: {fileID: 4042624662205078513, guid: bfca5492fd7f5134c9eb221532561f33, type: 3}
   lineColor: {r: 1, g: 0, b: 0, a: 1}
-  pointSpacing: 0.1
+  pointSpacing: 0.01
+  drawingOffset: {x: 680, y: 800}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2000,6 +2051,7 @@ SceneRoots:
   - {fileID: 519420032}
   - {fileID: 619394802}
   - {fileID: 2133706825}
+  - {fileID: 211106410}
   - {fileID: 106743294}
   - {fileID: 1073573439}
   - {fileID: 1558286821}
