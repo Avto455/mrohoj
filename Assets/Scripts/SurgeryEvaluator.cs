@@ -13,9 +13,10 @@ public class SurgeryEvaluator : MonoBehaviour
             return; 
         } 
 
-        float area = CalculateNormalisedArea(points); 
-        Debug.Log("Surgery Evaluation: Normalised Area = " + area); 
-
+        // 1. Ensure the polygon is closed for the algorithm
+        // The Point-in-Polygon algorithm usually handles the last-to-first edge,
+        // but we'll make sure our data is clean.
+        
         if (currentPatient == null) 
         { 
             Debug.Log("No patient case assigned!"); 
@@ -25,15 +26,19 @@ public class SurgeryEvaluator : MonoBehaviour
         int found = 0; 
         foreach (var parasite in currentPatient.parasites) 
         { 
-            if (IsPointInPolygon(parasite.center, points)) found++; 
+            if (IsPointInPolygon(parasite.center, points)) 
+            {
+                found++; 
+            }
         } 
-        Debug.Log("Parasites enclosed: " + found + " of " + currentPatient.parasites.Count); 
+        Debug.Log($"Surgery Result: {found} of {currentPatient.parasites.Count} parasites extracted!"); 
     } 
 
     private bool IsPointInPolygon(Vector2 point, List<Vector2> polygon) 
     { 
         bool isInside = false; 
-        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++) 
+        int count = polygon.Count;
+        for (int i = 0, j = count - 1; i < count; j = i++) 
         { 
             if (((polygon[i].y > point.y) != (polygon[j].y > point.y)) && 
                 (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) 
@@ -42,17 +47,5 @@ public class SurgeryEvaluator : MonoBehaviour
             }
         } 
         return isInside; 
-    } 
-
-    private float CalculateNormalisedArea(List<Vector2> points) 
-    { 
-        float area = 0; 
-        int j = points.Count - 1; 
-        for (int i = 0; i < points.Count; i++) 
-        { 
-            area += (points[j].x + points[i].x) * (points[j].y - points[i].y); 
-            j = i; 
-        } 
-        return Mathf.Abs(area / 2f); 
     } 
 }

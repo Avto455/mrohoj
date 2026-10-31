@@ -7,13 +7,12 @@ public class SurgeryDrawingController : MonoBehaviour
     [Header("Settings")]
     public ToolModeController modeController;
     public RectTransform patientRect;
-    public GameObject pointPrefab; // A small UI Image prefab
     public Color lineColor = Color.red;
-    public float pointSpacing = 2f; // Pixels distance to spawn new point
+    public float minDistanceBetweenPoints = 2f; 
 
     [Header("State")]
     private bool isDrawing = false;
-    private List<Vector2> currentContour = new List<Vector2>(); // Normalised coordinates (0 to 1)
+    private List<Vector2> currentContour = new List<Vector2>(); // Normalised (0..1)
     private List<GameObject> visualPoints = new List<GameObject>();
     private GameObject contourContainer;
 
@@ -40,18 +39,9 @@ public class SurgeryDrawingController : MonoBehaviour
 
     private void HandleInput()
     {
-        if (Input.GetMouseButtonDown(0))
-        {
-            StartDrawing();
-        }
-        else if (Input.GetMouseButton(0))
-        {
-            UpdateDrawing();
-        }
-        else if (Input.GetMouseButtonUp(0))
-        {
-            StopDrawing();
-        }
+        if (Input.GetMouseButtonDown(0)) StartDrawing();
+        else if (Input.GetMouseButton(0)) UpdateDrawing();
+        else if (Input.GetMouseButtonUp(0)) StopDrawing();
     }
 
     private void StartDrawing()
@@ -70,20 +60,29 @@ public class SurgeryDrawingController : MonoBehaviour
         
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(patientRect, mousePos, canvas != null ? canvas.worldCamera : null, out Vector2 localPoint))
         {
-            // Convert local coordinates to normalised coordinates (0 to 1)
-            // This removes any "magnetism" to center or offsets, as it's relative to the rect size
-            Vector2 size = patientRect.rect.size;
-            Vector2 normalizedPoint = new Vector2(
-                (localPoint.x / size.x) + 0.5f,
-                (localPoint.y / size.y) + 0.5f
-            );
-
-            if (currentContour.Count == 0 || Vector2.Distance(localPoint, GetLastLocalPoint()) > pointSpacing)
+            // Interpolation to prevent gaps during fast movement
+            if (localPointsCount() > 0)
             {
-                currentContour.Add(normalizedPoint);
-                SpawnPoint(localPoint);
+                Vector2 lastLocal = GetLastLocalPoint();
+                float dist = Vector2.Distance(localPoint, lastLocal);
+                if (dist > minDistanceBetweenPoints * 2f)
+                {
+                    int steps = Mathf.FloorToInt(dist / minDistanceBetweenPoints);
+                    for (int i = 1; i < steps; i++)
+                    {
+                        Vector2 interpPoint = Vector2.Lerp(lastLocal, localPoint, (float)i / steps);
+                        AddPoint(interpPoint);
+                    }
+                }
             }
+            AddPoint(localPoint);
         }
+    }
+
+    private int localPointsCount()
+    {
+        // Since we store normalized points, we just return the count
+        return currentContour.Count;
     }
 
     private Vector2 GetLastLocalPoint()
@@ -97,10 +96,21 @@ public class SurgeryDrawingController : MonoBehaviour
         );
     }
 
+    private void AddPoint(Vector2 localPos)
+    {
+        Vector2 size = patientRect.rect.size;
+        Vector2 normalizedPoint = new Vector2(
+            (localPos.x / size.x) + 0.5f,
+            (localPos.y / size.y) + 0.5f
+        );
+        currentContour.Add(normalizedPoint);
+        SpawnPoint(localPos);
+    }
+
     private void StopDrawing()
     {
         isDrawing = false;
-        Debug.Log($"Surgery: Finished drawing. Points collected: {currentContour.Count}");
+        Debug.Log($"Surgery: Finished drawing. Points: {currentContour.Count}");
         
         SurgeryEvaluator evaluator = GetComponent<SurgeryEvaluator>();
         if (evaluator != null)
@@ -111,21 +121,14 @@ public class SurgeryDrawingController : MonoBehaviour
 
     private void SpawnPoint(Vector2 localPos)
     {
-        GameObject p = pointPrefab != null ? Instantiate(pointPrefab, contourContainer.transform) : CreateDefaultPoint();
-        p.transform.localPosition = localPos;
-        if (p.GetComponent<Image>() != null)
-            p.GetComponent<Image>().color = lineColor;
-        
-        visualPoints.Add(p);
-    }
-
-    private GameObject CreateDefaultPoint()
-    {
         GameObject p = new GameObject("Point");
+        p.transform.SetParent(contourContainer.transform);
         p.AddComponent<Image>().color = lineColor;
         RectTransform rt = p.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(5, 5);
-        return p;
+        rt.sizeDelta = new Vector2(3, 3); // Smaller points for smoother look
+        rt.localPosition = localPos;
+        
+        visualPoints.Add(p);
     }
 
     private void ClearVisuals()
