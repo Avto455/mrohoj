@@ -1,1 +1,58 @@
-using UnityEngine; using System.Collections.Generic; public class SurgeryEvaluator : MonoBehaviour { public PatientCase currentPatient; public void EvaluateContour(List\<Vector2\> points) { if (points == null || points.Count \< 3) { Debug.Log(Surgery Evaluation: Contour too small.); return; } float area = CalculateArea(points); Debug.Log(Surgery Evaluation: Area =  + area); if (currentPatient == null) { Debug.Log(No patient case assigned!); return; } int found = 0; foreach (var parasite in currentPatient.parasites) { if (IsPointInPolygon(parasite.center, points)) found++; } Debug.Log(Parasites enclosed:  + found +  of  + currentPatient.parasites.Count); } private bool IsPointInPolygon(Vector2 point, List\<Vector2\> polygon) { bool isInside = false; for (int i = 0, j = polygon.Count - 1; i \< polygon.Count; j = i++) { if (((polygon[i].y > point.y) != (polygon[j].y > point.y)) && (point.x \< (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) isInside = !isInside; } return isInside; } private float CalculateArea(List\<Vector2\> points) { float area = 0; int j = points.Count - 1; for (int i = 0; i < points.Count; i++) { area += (points[j].x + points[i].x) * (points[j].y - points[i].y); j = i; } return Mathf.Abs(area / 2f); } }
+using UnityEngine;
+using System.Collections.Generic;
+
+public class SurgeryEvaluator : MonoBehaviour 
+{ 
+    public PatientCase currentPatient; 
+
+    public void EvaluateContour(List<Vector2> points) 
+    { 
+        if (points == null || points.Count < 3) 
+        { 
+            Debug.Log("Surgery Evaluation: Contour too small."); 
+            return; 
+        } 
+
+        float area = CalculateArea(points); 
+        Debug.Log("Surgery Evaluation: Area = " + area); 
+
+        if (currentPatient == null) 
+        { 
+            Debug.Log("No patient case assigned!"); 
+            return; 
+        } 
+
+        int found = 0; 
+        foreach (var parasite in currentPatient.parasites) 
+        { 
+            if (IsPointInPolygon(parasite.center, points)) found++; 
+        } 
+        Debug.Log("Parasites enclosed: " + found + " of " + currentPatient.parasites.Count); 
+    } 
+
+    private bool IsPointInPolygon(Vector2 point, List<Vector2> polygon) 
+    { 
+        bool isInside = false; 
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++) 
+        { 
+            if (((polygon[i].y > point.y) != (polygon[j].y > point.y)) && 
+                (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) 
+            {
+                isInside = !isInside; 
+            }
+        } 
+        return isInside; 
+    } 
+
+    private float CalculateArea(List<Vector2> points) 
+    { 
+        float area = 0; 
+        int j = points.Count - 1; 
+        for (int i = 0; i < points.Count; i++) 
+        { 
+            area += (points[j].x + points[i].x) * (points[j].y - points[i].y); 
+            j = i; 
+        } 
+        return Mathf.Abs(area / 2f); 
+    } 
+}
