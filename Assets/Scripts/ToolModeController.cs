@@ -39,13 +39,16 @@ public class ToolModeController : MonoBehaviour
 
     public void SetMode(ToolMode newMode)
     {
-        if (newMode == ToolMode.Surgery && !patientExamined)
+        // Toggle logic: if the same mode is selected, switch to None
+        if (currentMode == newMode)
         {
-            Debug.Log("Cannot enter Surgery mode before X-Ray examination!");
-            return;
+            currentMode = ToolMode.None;
+        }
+        else
+        {
+            currentMode = newMode;
         }
 
-        currentMode = newMode;
         UpdateUI();
         OnModeChanged?.Invoke(currentMode);
     }
