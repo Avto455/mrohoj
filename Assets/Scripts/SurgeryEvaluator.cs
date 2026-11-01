@@ -5,16 +5,13 @@ public class SurgeryEvaluator : MonoBehaviour
 { 
     public PatientCase currentPatient; 
 
-    public void EvaluateContour(List<Vector2> points) 
+    public void EvaluateContour(List<Vector2> localPoints, RectTransform drawingArea) 
     { 
-        if (points == null || points.Count < 3) 
+        if (localPoints == null || localPoints.Count < 3) 
         { 
             Debug.Log("Surgery Evaluation: Contour too small."); 
             return; 
         } 
-
-        float area = CalculateNormalisedArea(points); 
-        Debug.Log("Surgery Evaluation: Normalised Area = " + area); 
 
         if (currentPatient == null) 
         { 
@@ -22,10 +19,18 @@ public class SurgeryEvaluator : MonoBehaviour
             return; 
         } 
 
+        // 1. Convert the local points of the contour to normalized 0..1 coordinates
+        Vector2 size = drawingArea.rect.size;
+        List<Vector2> normalizedContour = new List<Vector2>();
+        foreach (var p in localPoints)
+        {
+            normalizedContour.Add(new Vector2((p.x / size.x) + 0.5f, (p.y / size.y) + 0.5f));
+        }
+
         int found = 0; 
         foreach (var parasite in currentPatient.parasites) 
         { 
-            if (IsParasiteCaptured(parasite, points)) 
+            if (IsParasiteCaptured(parasite, normalizedContour)) 
             {
                 found++; 
             }
@@ -35,30 +40,24 @@ public class SurgeryEvaluator : MonoBehaviour
 
     private bool IsParasiteCaptured(ParasiteTarget parasite, List<Vector2> polygon)
     {
-        // 1. Check if the center is inside the polygon (Standard Point-in-Polygon)
-        if (IsPointInPolygon(parasite.center, polygon))
-        {
-            return true;
-        }
+        // Check if center is inside
+        if (IsPointInPolygon(parasite.center, polygon)) return true;
 
-        // 2. "Smart Capture": Check if any part of the parasite's radius intersects the contour
-        // We check if the distance from the center to any segment of the polygon is less than the radius.
+        // Check if any edge of the contour is within the parasite's radius
         for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
         {
             if (DistancePointToSegment(parasite.center, polygon[j], polygon[i]) <= parasite.radius)
             {
-                return true; // The contour line actually cuts through or touches the parasite
+                return true;
             }
         }
-
         return false;
     }
 
     private bool IsPointInPolygon(Vector2 point, List<Vector2> polygon) 
     { 
         bool isInside = false; 
-        int count = polygon.Count;
-        for (int i = 0, j = count - 1; i < count; j = i++) 
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++) 
         { 
             if (((polygon[i].y > point.y) != (polygon[j].y > point.y)) && 
                 (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) 
@@ -75,21 +74,7 @@ public class SurgeryEvaluator : MonoBehaviour
         Vector2 ap = p - a;
         float lengthSq = ab.sqrMagnitude;
         if (lengthSq == 0) return Vector2.Distance(p, a);
-        
         float t = Mathf.Clamp01(Vector2.Dot(ap, ab) / lengthSq);
-        Vector2 projection = a + t * ab;
-        return Vector2.Distance(p, projection);
-    }
-
-    private float CalculateNormalisedArea(List<Vector2> points) 
-    { 
-        float area = 0; 
-        int j = points.Count - 1; 
-        for (int i = 0; i < points.Count; i++) 
-        { 
-            area += (points[j].x + points[i].x) * (points[j].y - points[i].y); 
-            j = i; 
-        } 
-        return Mathf.Abs(area / 2f); 
+        return Vector2.Distance(p, a + t * ab);
     } 
 }

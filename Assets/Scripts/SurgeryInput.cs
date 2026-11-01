@@ -9,46 +9,34 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
     public ToolModeController modeController;
     public SurgeryStrokeRenderer strokeRenderer;
     public SurgeryEvaluator evaluator;
-    public RectTransform drawingArea;
+    public RectTransform patientRect;
 
     [Header("Settings")]
-    public float minDistanceBetweenPoints = 2f;
-    public float closureDistance = 50f; // Increased for easier closing
+    public float minDistanceBetweenPoints = 5f;
 
     private List<Vector2> currentStroke = new List<Vector2>();
     private bool isDrawing = false;
-    private Vector2 lastAddedLocalPoint;
 
     void Start()
     {
         if (modeController == null) modeController = FindObjectOfType<ToolModeController>();
         if (strokeRenderer == null) strokeRenderer = GetComponentInChildren<SurgeryStrokeRenderer>();
         if (evaluator == null) evaluator = GetComponentInParent<SurgeryEvaluator>();
-        if (// Ensure drawing area is assigned
-            drawingArea == null) drawingArea = GetComponent<RectTransform>();
+        if (patientRect == null) patientRect = GetComponent<RectTransform>();
 
-        if (modeController != null)
-        {
-            modeController.OnModeChanged += HandleModeChanged;
-        }
+        if (modeController != null) modeController.OnModeChanged += HandleModeChanged;
     }
 
     private void HandleModeChanged(ToolModeController.ToolMode newMode)
     {
-        if (newMode != ToolModeController.ToolMode.Surgery)
-        {
-            ClearCurrentWork();
-        }
+        if (newMode != ToolModeController.ToolMode.Surgery) ClearCurrentWork();
     }
 
     private void ClearCurrentWork()
     {
         isDrawing = false;
         currentStroke.Clear();
-        if (strokeRenderer != null)
-        {
-            strokeRenderer.ClearLine();
-        }
+        if (strokeRenderer != null) strokeRenderer.ClearLine();
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -58,36 +46,14 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         isDrawing = true;
         currentStroke.Clear();
         if (strokeRenderer != null) strokeRenderer.ClearLine();
-
-        // Get initial point
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(drawingArea, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
-        {
-            PushPoint(localPoint);
-            lastAddedLocalPoint = localPoint;
-        }
-        Debug.Log("SurgeryInput: Started new stroke");
+        
+        AddPoint(eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
         if (!isDrawing) return;
-
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(drawingArea, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
-        {
-            // Interpolation for smoothness
-            float dist = Vector2.Distance(localPoint, lastAddedLocalPoint);
-            if (dist > minDistanceBetweenPoints * 2f)
-            {
-                int steps = Mathf.FloorToInt(dist / minDistanceBetweenPoints);
-                for (int i = 1; i < steps; i++)
-                {
-                    Vector2 interpPoint = Vector2.Lerp(lastAddedLocalPoint, localPoint, (float)i / steps);
-                    PushPoint(interpPoint);
-                }
-            }
-            PushPoint(localPoint);
-            lastAddedLocalPoint = localPoint;
-        }
+        AddPoint(eventData);
     }
 
     public void OnPointerUp(PointerEventData eventData)
@@ -97,50 +63,34 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
 
         if (currentStroke.Count < 3)
         {
-            Debug.Log("SurgeryInput: Stroke too short to be a contour");
             if (strokeRenderer != null) strokeRenderer.ClearLine();
             return;
         }
 
-        // FORCED CLOSURE: For the Point-in-Polygon to work, the loop MUST be closed.
-        // We add the first point to the end of the list.
+        // Force closure for mathematical consistency
         currentStroke.Add(currentStroke[0]);
-        if (strokeRenderer != null)
-        {
-            // Visual closure
-            Vector2 size = drawingArea.rect.size;
-            Vector2 firstLocal = new Vector2(
-                (currentStroke[0].x - 0.5f) * size.x,
-                (currentStroke[0].y - 0.5f) * size.y
-            );
-            strokeRenderer.AddPoint(firstLocal);
-        }
-        
-        Debug.Log("SurgeryInput: Contour closed and sent to evaluator");
+        if (strokeRenderer != null) strokeRenderer.AddPoint(currentStroke[0]);
 
-        if (evaluator != null)
-        {
-            evaluator.EvaluateContour(currentStroke);
-        }
+        if (evaluator != null) evaluator.EvaluateContour(currentStroke, patientRect);
     }
 
-    private void PushPoint(Vector2 point)
+    private void AddPoint(PointerEventData eventData)
     {
-        Vector2 size = drawingArea.rect.size;
-        Vector2 normalizedPoint = new Vector2(
-            (point.x / size.x) + 0.5f,
-            (point.y / size.y) + 0.5f
-        );
-        currentStroke.Add(normalizedPoint);
-        if (strokeRenderer != null)
+        // Use Screen Point to Local’s absolute result
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(patientRect, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
         {
-            strokeRenderer.AddPoint(point);
+            if (currentStroke.Count > 0)
+            {
+                float dist = Vector2.Distance(localPoint, currentStroke[currentStroke.Count - 1]);
+                if (dist < minDistanceBetweenPoints) return;
+            }
+            currentStroke.Add(localPoint);
+            if (strokeRenderer != null) strokeRenderer.AddPoint(localPoint);
         }
     }
 
     private void OnDestroy()
     {
-        if (modeController != null)
-            modeController.OnModeChanged -= HandleModeChanged;
+        if (modeController != null) modeController.OnModeChanged -= HandleModeChanged;
     }
 }
