@@ -13,19 +13,20 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
 
     [Header("Settings")]
     public float minDistanceBetweenPoints = 2f;
-    public float closureDistance = 30f;
+    public float closureDistance = 50f; // Increased for easier closing
 
     private List<Vector2> currentStroke = new List<Vector2>();
     private bool isDrawing = false;
+    private Vector2 lastAddedLocalPoint;
 
     void Start()
     {
         if (modeController == null) modeController = FindObjectOfType<ToolModeController>();
         if (strokeRenderer == null) strokeRenderer = GetComponentInChildren<SurgeryStrokeRenderer>();
         if (evaluator == null) evaluator = GetComponentInParent<SurgeryEvaluator>();
-        if (drawingArea == null) drawingArea = GetComponent<RectTransform>();
+        if (// Ensure drawing area is assigned
+            drawingArea == null) drawingArea = GetComponent<RectTransform>();
 
-        // Subscribe to mode changes to clear line when leaving Surgery mode
         if (modeController != null)
         {
             modeController.OnModeChanged += HandleModeChanged;
@@ -58,7 +59,12 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         currentStroke.Clear();
         if (strokeRenderer != null) strokeRenderer.ClearLine();
 
-        AddPoint(eventData);
+        // Get initial point
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(drawingArea, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
+        {
+            PushPoint(localPoint);
+            lastAddedLocalPoint = localPoint;
+        }
         Debug.Log("SurgeryInput: Started new stroke");
     }
 
@@ -66,7 +72,22 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
     {
         if (!isDrawing) return;
 
-        AddPoint(eventData);
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(drawingArea, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
+        {
+            // Interpolation for smoothness
+            float dist = Vector2.Distance(localPoint, lastAddedLocalPoint);
+            if (dist > minDistanceBetweenPoints * 2f)
+            {
+                int steps = Mathf.FloorToInt(dist / minDistanceBetweenPoints);
+                for (int i = 1; i < steps; i++)
+                {
+                    Vector2 interpPoint = Vector2.Lerp(lastAddedLocalPoint, localPoint, (float)i / steps);
+                    PushPoint(interpPoint);
+                }
+            }
+            PushPoint(localPoint);
+            lastAddedLocalPoint = localPoint;
+        }
     }
 
     public void OnPointerUp(PointerEventData eventData)
@@ -81,54 +102,26 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
             return;
         }
 
-        // Check for closure: if end is close to start, close it automatically
-        Vector2 startPoint = currentStroke[0];
-        Vector2 endPoint = currentStroke[currentStroke.Count - 1];
-        if (Vector2.Distance(startPoint, endPoint) < closureDistance)
+        // FORCED CLOSURE: For the Point-in-Polygon to work, the loop MUST be closed.
+        // We add the first point to the end of the list.
+        currentStroke.Add(currentStroke[0]);
+        if (strokeRenderer != null)
         {
-            currentStroke.Add(startPoint);
-            if (strokeRenderer != null) strokeRenderer.AddPoint(startPoint);
-            Debug.Log("SurgeryInput: Contour automatically closed");
+            // Visual closure
+            Vector2 size = drawingArea.rect.size;
+            Vector2 firstLocal = new Vector2(
+                (currentStroke[0].x - 0.5f) * size.x,
+                (currentStroke[0].y - 0.5f) * size.y
+            );
+            strokeRenderer.AddPoint(firstLocal);
         }
+        
+        Debug.Log("SurgeryInput: Contour closed and sent to evaluator");
 
         if (evaluator != null)
         {
             evaluator.EvaluateContour(currentStroke);
         }
-    }
-
-    private void AddPoint(PointerEventData eventData)
-    {
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(drawingArea, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
-        {
-            // Interpolation for smoothness
-            if (currentStroke.Count > 0)
-            {
-                Vector2 lastLocal = GetLastLocalPoint();
-                float dist = Vector2.Distance(localPoint, lastLocal);
-                if (dist > minDistanceBetweenPoints * 2f)
-                {
-                    int steps = Mathf.FloorToInt(dist / minDistanceBetweenPoints);
-                    for (int i = 1; i < steps; i++)
-                    {
-                        Vector2 interpPoint = Vector2.Lerp(lastLocal, localPoint, (float)i / steps);
-                        PushPoint(interpPoint);
-                    }
-                }
-            }
-            PushPoint(localPoint);
-        }
-    }
-
-    private Vector2 GetLastLocalPoint()
-    {
-        if (currentStroke.Count == 0) return Vector2.zero;
-        Vector2 lastNorm = currentStroke[currentStroke.Count - 1];
-        Vector2 size = drawingArea.rect.size;
-        return new Vector2(
-            (lastNorm.x - 0.5f) * size.x,
-            (lastNorm.y - 0.5f) * size.y
-        );
     }
 
     private void PushPoint(Vector2 point)
