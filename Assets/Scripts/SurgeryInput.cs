@@ -76,7 +76,7 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
 
     private void AddPoint(PointerEventData eventData)
     {
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(drawingArea, eventData.position, eventData.eventCamera, out Vector2 localPoint))
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(drawingArea, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
         {
             // Interpolation for smoothness
             if (currentStroke.Count > 0)

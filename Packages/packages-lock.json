@@ -291,6 +291,15 @@
         "com.unity.modules.imgui": "1.0.0"
       }
     },
+    "com.unity.uiextensions": {
+      "version": "3.0.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.ugui": "2.0.0"
+      },
+      "url": "https://package.openupm.com"
+    },
     "com.unity.visualscripting": {
       "version": "1.9.7",
       "depth": 0,
