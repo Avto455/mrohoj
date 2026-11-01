@@ -13,20 +13,32 @@ public class SurgeryEvaluator : MonoBehaviour
             return; 
         } 
 
-        // 1. Ensure the polygon is closed for the algorithm
-        // The Point-in-Polygon algorithm usually handles the last-to-first edge,
-        // but we'll make sure our data is clean.
-        
         if (currentPatient == null) 
         { 
             Debug.Log("No patient case assigned!"); 
             return; 
         } 
 
+        // Convert local points to normalized 0..1 for comparison with PatientCase
+        // We need a reference to the drawing area to do this
+        RectTransform drawingArea = GetComponent<RectTransform>();
+        if (drawingArea == null)
+        {
+            Debug.LogError("SurgeryEvaluator must be on a RectTransform (Drawing Area)!");
+            return;
+        }
+
+        Vector2 size = drawingArea.rect.size;
+        List<Vector2> normalizedPoints = new List<Vector2>();
+        foreach (var p in points)
+        {
+            normalizedPoints.Add(new Vector2((p.x / size.x) + 0.5f, (p.y / size.y) + 0.5f));
+        }
+
         int found = 0; 
         foreach (var parasite in currentPatient.parasites) 
         { 
-            if (IsPointInPolygon(parasite.center, points)) 
+            if (IsPointInPolygon(parasite.center, normalizedPoints)) 
             {
                 found++; 
             }
