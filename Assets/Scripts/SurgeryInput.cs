@@ -24,6 +24,30 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         if (strokeRenderer == null) strokeRenderer = GetComponentInChildren<SurgeryStrokeRenderer>();
         if (evaluator == null) evaluator = GetComponentInParent<SurgeryEvaluator>();
         if (drawingArea == null) drawingArea = GetComponent<RectTransform>();
+
+        // Subscribe to mode changes to clear line when leaving Surgery mode
+        if (modeController != null)
+        {
+            modeController.OnModeChanged += HandleModeChanged;
+        }
+    }
+
+    private void HandleModeChanged(ToolModeController.ToolMode newMode)
+    {
+        if (newMode != ToolModeController.ToolMode.Surgery)
+        {
+            ClearCurrentWork();
+        }
+    }
+
+    private void ClearCurrentWork()
+    {
+        isDrawing = false;
+        currentStroke.Clear();
+        if (strokeRenderer != null)
+        {
+            strokeRenderer.ClearLine();
+        }
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -32,7 +56,7 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
 
         isDrawing = true;
         currentStroke.Clear();
-        strokeRenderer.ClearLine();
+        if (strokeRenderer != null) strokeRenderer.ClearLine();
 
         AddPoint(eventData);
         Debug.Log("SurgeryInput: Started new stroke");
@@ -53,7 +77,7 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         if (currentStroke.Count < 3)
         {
             Debug.Log("SurgeryInput: Stroke too short to be a contour");
-            strokeRenderer.ClearLine();
+            if (strokeRenderer != null) strokeRenderer.ClearLine();
             return;
         }
 
@@ -63,11 +87,10 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         if (Vector2.Distance(startPoint, endPoint) < closureDistance)
         {
             currentStroke.Add(startPoint);
-            strokeRenderer.AddPoint(startPoint);
+            if (strokeRenderer != null) strokeRenderer.AddPoint(startPoint);
             Debug.Log("SurgeryInput: Contour automatically closed");
         }
 
-        // Pass the contour to evaluator
         if (evaluator != null)
         {
             evaluator.EvaluateContour(currentStroke);
@@ -81,14 +104,14 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
             // Interpolation for smoothness
             if (currentStroke.Count > 0)
             {
-                Vector2 lastPoint = currentStroke[currentStroke.Count - 1];
-                float dist = Vector2.Distance(localPoint, lastPoint);
+                Vector2 lastLocal = GetLastLocalPoint();
+                float dist = Vector2.Distance(localPoint, lastLocal);
                 if (dist > minDistanceBetweenPoints * 2f)
                 {
                     int steps = Mathf.FloorToInt(dist / minDistanceBetweenPoints);
                     for (int i = 1; i < steps; i++)
                     {
-                        Vector2 interpPoint = Vector2.Lerp(lastPoint, localPoint, (float)i / steps);
+                        Vector2 interpPoint = Vector2.Lerp(lastLocal, localPoint, (float)i / steps);
                         PushPoint(interpPoint);
                     }
                 }
@@ -97,12 +120,34 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         }
     }
 
+    private Vector2 GetLastLocalPoint()
+    {
+        if (currentStroke.Count == 0) return Vector2.zero;
+        Vector2 lastNorm = currentStroke[currentStroke.Count - 1];
+        Vector2 size = drawingArea.rect.size;
+        return new Vector2(
+            (lastNorm.x - 0.5f) * size.x,
+            (lastNorm.y - 0.5f) * size.y
+        );
+    }
+
     private void PushPoint(Vector2 point)
     {
-        currentStroke.Add(point);
+        Vector2 size = drawingArea.rect.size;
+        Vector2 normalizedPoint = new Vector2(
+            (point.x / size.x) + 0.5f,
+            (point.y / size.y) + 0.5f
+        );
+        currentStroke.Add(normalizedPoint);
         if (strokeRenderer != null)
         {
             strokeRenderer.AddPoint(point);
         }
+    }
+
+    private void OnDestroy()
+    {
+        if (modeController != null)
+            modeController.OnModeChanged -= HandleModeChanged;
     }
 }

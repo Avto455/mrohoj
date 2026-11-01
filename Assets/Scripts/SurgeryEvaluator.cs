@@ -13,38 +13,46 @@ public class SurgeryEvaluator : MonoBehaviour
             return; 
         } 
 
+        float area = CalculateNormalisedArea(points); 
+        Debug.Log("Surgery Evaluation: Normalised Area = " + area); 
+
         if (currentPatient == null) 
         { 
             Debug.Log("No patient case assigned!"); 
             return; 
         } 
 
-        // Convert local points to normalized 0..1 for comparison with PatientCase
-        // We need a reference to the drawing area to do this
-        RectTransform drawingArea = GetComponent<RectTransform>();
-        if (drawingArea == null)
-        {
-            Debug.LogError("SurgeryEvaluator must be on a RectTransform (Drawing Area)!");
-            return;
-        }
-
-        Vector2 size = drawingArea.rect.size;
-        List<Vector2> normalizedPoints = new List<Vector2>();
-        foreach (var p in points)
-        {
-            normalizedPoints.Add(new Vector2((p.x / size.x) + 0.5f, (p.y / size.y) + 0.5f));
-        }
-
         int found = 0; 
         foreach (var parasite in currentPatient.parasites) 
         { 
-            if (IsPointInPolygon(parasite.center, normalizedPoints)) 
+            if (IsParasiteCaptured(parasite, points)) 
             {
                 found++; 
             }
         } 
         Debug.Log($"Surgery Result: {found} of {currentPatient.parasites.Count} parasites extracted!"); 
     } 
+
+    private bool IsParasiteCaptured(ParasiteTarget parasite, List<Vector2> polygon)
+    {
+        // 1. Check if the center is inside the polygon (Standard Point-in-Polygon)
+        if (IsPointInPolygon(parasite.center, polygon))
+        {
+            return true;
+        }
+
+        // 2. "Smart Capture": Check if any part of the parasite's radius intersects the contour
+        // We check if the distance from the center to any segment of the polygon is less than the radius.
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+        {
+            if (DistancePointToSegment(parasite.center, polygon[j], polygon[i]) <= parasite.radius)
+            {
+                return true; // The contour line actually cuts through or touches the parasite
+            }
+        }
+
+        return false;
+    }
 
     private bool IsPointInPolygon(Vector2 point, List<Vector2> polygon) 
     { 
@@ -59,5 +67,29 @@ public class SurgeryEvaluator : MonoBehaviour
             }
         } 
         return isInside; 
+    } 
+
+    private float DistancePointToSegment(Vector2 p, Vector2 a, Vector2 b)
+    {
+        Vector2 ab = b - a;
+        Vector2 ap = p - a;
+        float lengthSq = ab.sqrMagnitude;
+        if (lengthSq == 0) return Vector2.Distance(p, a);
+        
+        float t = Mathf.Clamp01(Vector2.Dot(ap, ab) / lengthSq);
+        Vector2 projection = a + t * ab;
+        return Vector2.Distance(p, projection);
+    }
+
+    private float CalculateNormalisedArea(List<Vector2> points) 
+    { 
+        float area = 0; 
+        int j = points.Count - 1; 
+        for (int i = 0; i < points.Count; i++) 
+        { 
+            area += (points[j].x + points[i].x) * (points[j].y - points[i].y); 
+            j = i; 
+        } 
+        return Mathf.Abs(area / 2f); 
     } 
 }
