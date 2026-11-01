@@ -7,8 +7,9 @@ public class SurgeryDrawingController : MonoBehaviour
     [Header("Settings")]
     public ToolModeController modeController;
     public RectTransform patientRect;
+    public GameObject pointPrefab; 
     public Color lineColor = Color.red;
-    public float minDistanceBetweenPoints = 2f; 
+    public float pointSpacing = 2f; 
 
     [Header("State")]
     private bool isDrawing = false;
@@ -20,6 +21,14 @@ public class SurgeryDrawingController : MonoBehaviour
     {
         contourContainer = new GameObject("ContourContainer");
         contourContainer.transform.SetParent(patientRect);
+        
+        // Ensure the container is centered and fills the parent
+        RectTransform containerRect = contourContainer.AddComponent<RectTransform>();
+        containerRect.anchorMin = Vector2.zero;
+        containerRect.anchorMax = Vector2.one;
+        containerRect.pivot = new Vector2(0.5f, 0.5f);
+        containerRect.sizeDelta = Vector2.zero;
+        
         contourContainer.SetActive(false);
 
         if (modeController == null)
@@ -60,29 +69,18 @@ public class SurgeryDrawingController : MonoBehaviour
         
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(patientRect, mousePos, canvas != null ? canvas.worldCamera : null, out Vector2 localPoint))
         {
-            // Interpolation to prevent gaps during fast movement
-            if (localPointsCount() > 0)
-            {
-                Vector2 lastLocal = GetLastLocalPoint();
-                float dist = Vector2.Distance(localPoint, lastLocal);
-                if (dist > minDistanceBetweenPoints * 2f)
-                {
-                    int steps = Mathf.FloorToInt(dist / minDistanceBetweenPoints);
-                    for (int i = 1; i < steps; i++)
-                    {
-                        Vector2 interpPoint = Vector2.Lerp(lastLocal, localPoint, (float)i / steps);
-                        AddPoint(interpPoint);
-                    }
-                }
-            }
-            AddPoint(localPoint);
-        }
-    }
+            Vector2 size = patientRect.rect.size;
+            Vector2 normalizedPoint = new Vector2(
+                (localPoint.x / size.x) + 0.5f,
+                (localPoint.y / size.y) + 0.5f
+            );
 
-    private int localPointsCount()
-    {
-        // Since we store normalized points, we just return the count
-        return currentContour.Count;
+            if (currentContour.Count == 0 || Vector2.Distance(localPoint, GetLastLocalPoint()) > pointSpacing)
+            {
+                currentContour.Add(normalizedPoint);
+                SpawnPoint(localPoint);
+            }
+        }
     }
 
     private Vector2 GetLastLocalPoint()
@@ -94,17 +92,6 @@ public class SurgeryDrawingController : MonoBehaviour
             (lastNorm.x - 0.5f) * size.x,
             (lastNorm.y - 0.5f) * size.y
         );
-    }
-
-    private void AddPoint(Vector2 localPos)
-    {
-        Vector2 size = patientRect.rect.size;
-        Vector2 normalizedPoint = new Vector2(
-            (localPos.x / size.x) + 0.5f,
-            (localPos.y / size.y) + 0.5f
-        );
-        currentContour.Add(normalizedPoint);
-        SpawnPoint(localPos);
     }
 
     private void StopDrawing()
@@ -121,12 +108,27 @@ public class SurgeryDrawingController : MonoBehaviour
 
     private void SpawnPoint(Vector2 localPos)
     {
-        GameObject p = new GameObject("Point");
-        p.transform.SetParent(contourContainer.transform);
-        p.AddComponent<Image>().color = lineColor;
-        RectTransform rt = p.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(3, 3); // Smaller points for smoother look
-        rt.localPosition = localPos;
+        GameObject p;
+        if (pointPrefab != null)
+        {
+            p = Instantiate(pointPrefab, contourContainer.transform);
+        }
+        else
+        {
+            p = new GameObject("Point");
+            p.transform.SetParent(contourContainer.transform);
+            p.AddComponent<Image>().color = lineColor;
+            RectTransform rt = p.AddComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(5, 5);
+        }
+        
+        // IMPORTANT: Use anchoredPosition for UI elements
+        RectTransform rtPoint = p.GetComponent<RectTransform>();
+        if (rtPoint != null)
+        {
+            rtPoint.anchoredPosition = localPos;
+            rtPoint.pivot = new Vector2(0.5f, 0.5f);
+        }
         
         visualPoints.Add(p);
     }
