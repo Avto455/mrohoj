@@ -13,16 +13,22 @@ public class ParasiteVisualizer : MonoBehaviour
 
     private List<GameObject> visualParasites = new List<GameObject>();
     private GameObject visualContainer;
+    private HashSet<int> extractedParasites = new HashSet<int>();
 
     void Start()
     {
-        visualContainer = new GameObject("ParasiteVisuals");
-        visualContainer.transform.SetParent(xrayRect);
+        visualContainer = new GameObject("ParasiteVisuals", typeof(RectTransform));
+        var crt = (RectTransform)visualContainer.transform;
+        crt.SetParent(xrayRect, false);
+        crt.anchorMin = Vector2.zero;
+        crt.anchorMax = Vector2.one;
+        crt.offsetMin = crt.offsetMax = Vector2.zero;
+        crt.localScale = Vector3.one;
         visualContainer.SetActive(false);
 
         if (modeController == null)
             modeController = FindObjectOfType<ToolModeController>();
-        
+
         modeController.OnModeChanged += HandleModeChanged;
     }
 
@@ -44,17 +50,29 @@ public class ParasiteVisualizer : MonoBehaviour
         if (currentPatient == null) return;
 
         visualContainer.SetActive(true);
-        foreach (var parasite in currentPatient.parasites)
+        for (int i = 0; i < currentPatient.xrayParasites.Count; i++)
         {
-            GameObject p = parasitePrefab != null ? Instantiate(parasitePrefab, visualContainer.transform) : CreateDefaultCircle();
-            p.transform.localPosition = parasite.center;
-            
-            // Scale the circle based on radius
-            RectTransform rt = p.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(parasite.radius * 2, parasite.radius * 2);
+            if (extractedParasites.Contains(i))
+            {
+                visualParasites.Add(null);
+                continue;
+            }
 
-            if (p.GetComponent<Image>() != null)
-                p.GetComponent<Image>().color = parasiteColor;
+            // внутри ShowParasites, вместо localPosition / sizeDelta:
+            var parasite = currentPatient.xrayParasites[i];
+
+            GameObject p = parasitePrefab != null
+                ? Instantiate(parasitePrefab, visualContainer.transform, false)
+                : CreateDefaultCircle();
+
+            RectTransform rt = p.GetComponent<RectTransform>();
+            rt.anchorMin = parasite.center - Vector2.one * parasite.radius;
+            rt.anchorMax = parasite.center + Vector2.one * parasite.radius;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
+
+            var img = p.GetComponent<Image>();
+            if (img != null) img.color = parasiteColor;
 
             visualParasites.Add(p);
         }
@@ -74,10 +92,8 @@ public class ParasiteVisualizer : MonoBehaviour
 
     private GameObject CreateDefaultCircle()
     {
-        GameObject p = new GameObject("ParasiteMarker");
-        p.AddComponent<Image>().color = parasiteColor;
-        RectTransform rt = p.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(10, 10);
+        var p = new GameObject("ParasiteMarker", typeof(RectTransform), typeof(Image));
+        p.transform.SetParent(visualContainer.transform, false);
         return p;
     }
 
@@ -85,5 +101,18 @@ public class ParasiteVisualizer : MonoBehaviour
     {
         if (modeController != null)
             modeController.OnModeChanged -= HandleModeChanged;
+    }
+
+    public void MarkExtracted(int index)
+    {
+        if (index < 0 || index >= visualParasites.Count)
+            return;
+
+        extractedParasites.Add(index);
+
+        if (visualParasites[index] != null)
+            visualParasites[index].SetActive(false);
+
+        Debug.Log($"ParasiteVisualizer: Parasite {index} extracted and hidden.");
     }
 }
