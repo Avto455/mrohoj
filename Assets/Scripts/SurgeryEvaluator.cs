@@ -5,10 +5,30 @@ public class SurgeryEvaluator : MonoBehaviour
 {
     public PatientCase currentPatient;
     public ParasiteVisualizer parasiteVisualizer;
+
+    [Header("Balance")]
+    [Tooltip("Во сколько раз вырезанная площадь может превышать площадь паразитов")]
+    public float maxAreaRatio = 4f;
+    [Tooltip("Минимально допустимая вырезанная площадь (доля картинки)")]
+    public float minAllowedArea = 0.03f;
+
+    public bool Overcut { get; private set; }
+    public event System.Action OnOvercut;
+    public event System.Action OnAllExtracted;
+
     private readonly HashSet<int> extracted = new HashSet<int>();
+    private float totalCutArea;
+
+    public bool AllParasitesExtracted()
+    {
+        // пациент без паразитов считается живым
+        return currentPatient == null || extracted.Count >= currentPatient.scalpelTargets.Count;
+    }
 
     public void EvaluateContour(List<Vector2> localPoints, RectTransform drawingArea)
     {
+        if (Overcut) return; // пациент уже мёртв
+
         if (localPoints == null || localPoints.Count < 3)
         {
             Debug.Log("Surgery Evaluation: Contour too small.");
@@ -21,49 +41,64 @@ public class SurgeryEvaluator : MonoBehaviour
             return;
         }
 
-        // 1. Convert the local points of the contour to normalized 0..1 coordinates
-        Vector2 size = drawingArea.rect.size;
-        //List<Vector2> normalizedContour = new List<Vector2>();
-        //foreach (var p in localPoints)
-        //{
-        //    normalizedContour.Add(new Vector2((p.x / size.x) + 0.5f, (p.y / size.y) + 0.5f));
-        //}
+        // Контур в нормализованных координатах 0..1
         List<Vector2> normalizedContour = new List<Vector2>();
         foreach (var p in localPoints)
             normalizedContour.Add(Rect.PointToNormalized(drawingArea.rect, p));
+
+        // Баланс: суммарная вырезанная площадь
+        totalCutArea += PolygonArea(normalizedContour);
+        Overcut = totalCutArea > AllowedArea();
+
+        if (Overcut)
+        {
+            Debug.Log($"Пациент скончался на операции (area {totalCutArea:F3}/{AllowedArea():F3})");
+            OnOvercut?.Invoke();
+            return; // паразитов на смертельном разрезе не засчитываем
+        }
 
         int found = 0;
 
         for (int i = 0; i < currentPatient.scalpelTargets.Count; i++)
         {
-            var parasite = currentPatient.scalpelTargets[i];
+            if (extracted.Contains(i)) continue;
 
-            if (IsParasiteCaptured(parasite, normalizedContour))
+            if (IsParasiteCaptured(currentPatient.scalpelTargets[i], normalizedContour))
             {
-                extracted.Add(i);   // <-- новая строка
+                extracted.Add(i);
                 found++;
 
                 if (parasiteVisualizer != null)
                     parasiteVisualizer.MarkExtracted(i);
             }
         }
-        Debug.Log($"Surgery Result: {found} of {currentPatient.scalpelTargets.Count} parasites extracted!");
+
+        if (found > 0 && AllParasitesExtracted())
+            OnAllExtracted?.Invoke();
+
+        Debug.Log($"Surgery Result: {found} captured, total extracted {extracted.Count}/{currentPatient.scalpelTargets.Count}, " +
+                  $"area {totalCutArea:F3}/{AllowedArea():F3}");
+    }
+
+    private float AllowedArea()
+    {
+        float parasiteArea = 0f;
+        foreach (var t in currentPatient.scalpelTargets)
+            parasiteArea += Mathf.PI * t.radius * t.radius;
+        return Mathf.Max(parasiteArea * maxAreaRatio, minAllowedArea);
+    }
+
+    private float PolygonArea(List<Vector2> poly)
+    {
+        float a = 0f;
+        for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++)
+            a += poly[j].x * poly[i].y - poly[i].x * poly[j].y;
+        return Mathf.Abs(a) * 0.5f;
     }
 
     private bool IsParasiteCaptured(ParasiteTarget parasite, List<Vector2> polygon)
     {
-        // Check if center is inside
-        if (IsPointInPolygon(parasite.center, polygon)) return true;
-
-        // Check if any edge of the contour is within the parasite's radius
-        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
-        {
-            if (DistancePointToSegment(parasite.center, polygon[j], polygon[i]) <= parasite.radius)
-            {
-                return true;
-            }
-        }
-        return false;
+        return IsPointInPolygon(parasite.center, polygon);
     }
 
     private bool IsPointInPolygon(Vector2 point, List<Vector2> polygon)
@@ -78,21 +113,5 @@ public class SurgeryEvaluator : MonoBehaviour
             }
         }
         return isInside;
-    }
-
-    private float DistancePointToSegment(Vector2 p, Vector2 a, Vector2 b)
-    {
-        Vector2 ab = b - a;
-        Vector2 ap = p - a;
-        float lengthSq = ab.sqrMagnitude;
-        if (lengthSq == 0) return Vector2.Distance(p, a);
-        float t = Mathf.Clamp01(Vector2.Dot(ap, ab) / lengthSq);
-        return Vector2.Distance(p, a + t * ab);
-    }
-
-    public bool AllParasitesExtracted()
-    {
-        // пациент без паразитов считается живым
-        return currentPatient == null || extracted.Count >= currentPatient.scalpelTargets.Count;
     }
 }

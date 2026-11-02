@@ -41,6 +41,7 @@ public class SurgeryInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
 
     public void OnPointerDown(PointerEventData eventData)
     {
+        if (evaluator != null && evaluator.Overcut) return;
         if (modeController == null || modeController.currentMode != ToolModeController.ToolMode.Surgery) return;
 
         isDrawing = true;

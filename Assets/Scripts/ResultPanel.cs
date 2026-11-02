@@ -1,36 +1,51 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 
 public class ResultPanel : MonoBehaviour
 {
     public SurgeryEvaluator evaluator;
     public Button exitButton;
-    public Button nextButton;
     public GameObject panel;
     public TMP_Text resultText;
 
-    public string aliveText = "Пациент жив";
-    public string deadText = "Пациент умер";
+    public string aliveText = "Пациент выжил";
+    public string missedText = "Пациент умер: паразит остался внутри";
+    public string diedOnTableText = "Пациент скончался на операции";
+    public float deathDelay = 1f; // пауза, чтобы игрок увидел последний разрез
+
+    private bool shown;
 
     void Start()
     {
         panel.SetActive(false);
         exitButton.onClick.AddListener(ShowResult);
-        nextButton.onClick.AddListener(LoadNext);
+        evaluator.OnOvercut += OnDiedOnTable;
     }
+
+    void OnDiedOnTable()
+    {
+        Invoke(nameof(ShowDeath), deathDelay);
+    }
+
+    void ShowDeath() => Show(diedOnTableText);
 
     void ShowResult()
     {
-        resultText.text = evaluator.AllParasitesExtracted() ? aliveText : deadText;
+        if (shown) return;
+        Show(evaluator.AllParasitesExtracted() ? aliveText : missedText);
+    }
+
+    void Show(string text)
+    {
+        if (shown) return;
+        shown = true;
+        resultText.text = text;
         panel.SetActive(true);
     }
 
-    void LoadNext()
+    void OnDestroy()
     {
-        int next = SceneManager.GetActiveScene().buildIndex + 1;
-        if (next >= SceneManager.sceneCountInBuildSettings) next = 0; // после последней - снова первая
-        SceneManager.LoadScene(next);
+        if (evaluator != null) evaluator.OnOvercut -= OnDiedOnTable;
     }
 }
